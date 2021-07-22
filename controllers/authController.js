@@ -1,26 +1,39 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const User = require("../models/userModel");
+const user = require("../models/userModel");
 
 exports.signup = async (req, res, next) => {
   try {
-    let { id, firstName, lastName, email, password } = req.body;
+    let { firstName, lastName, email, password } = req.body;
     // hash incoming password from req.body
+
+    const checkEmail = await user.findOne({ email });
+
+    if (checkEmail) {
+      return res.json("Email already exists!")
+    }
+
     password = await bcrypt.hash(password, 12);
 
+    // push new user to database
+    const newUser = { firstName, lastName, email, password };
+    const createUser = await user.create(newUser);
+
+    const id = createUser._id;
     // sign jwt token with user id as payload
     const token = jwt.sign({ id }, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRES_IN,
     });
 
-    const newUser = { id, firstName, lastName, email, password };
-    User.push(newUser);
-    // push new user to dummy database
-
     res.status(201).json({
       status: "success",
       token,
-      User,
+      data: {
+        id: createUser._id,
+        firstName: createUser.firstName,
+        lastName: createUser.lastName,
+        email: createUser.email
+      }
     });
   } catch (err) {
     res.status(400).json({
